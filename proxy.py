@@ -1,6 +1,6 @@
 from urllib import parse
 import logging
-from flask import Flask, request, redirect, render_template, Markup
+from flask import Flask, request, redirect, render_template, Markup, abort
 import requests
 import environs
 
@@ -10,18 +10,34 @@ env.read_env()
 app = Flask(__name__)
 
 app.config.update(
+    # Base URL used for reidrect_uri
     BASE_URL=env.str("BASE_URL"),
 
+    # OAuth2 Client ID
     OAUTH2_CLIENT=env.str('OAUTH2_CLIENT'),
+
+    # OAuth2 Client Secret
     OAUTH2_SECRET=env.str('OAUTH2_SECRET'),
+
+    # OAuth2 Scope
     OAUTH2_SCOPE=env.str('OAUTH2_SCOPE', 'profile:read'),
 
+    # OAuth2 Authorization URL
     OAUTH2_AUTHORIZE=env.str('OAUTH2_AUTHORIZE',
                              'https://sso.hackerspace.pl/oauth/authorize'),
+
+    # OAuth2 Token exchange URL
     OAUTH2_TOKEN=env.str('OAUTH2_TOKEN',
                          'https://sso.hackerspace.pl/oauth/token'),
+
+    # OAuth2 user information API endpoint (JSON, username attribute will be
+    # passed as <cas:user>)
     OAUTH2_USERINFO=env.str('OAUTH2_USERINFO',
                             'https://sso.hackerspace.pl/api/1/profile'),
+
+    # Basic service URL verification (proxy will return 403 if provided service
+    # argument does not start with this prefix)
+    SERVICE_URL=env.str('SERVICE_URL', ''),
 )
 
 app.config['REDIRECT_URI'] = '%s/_cas/_callback' % (app.config['BASE_URL'],)
@@ -68,14 +84,19 @@ def login():
     """
     # scope=profile:read&client_id=registry&response_type=code&redirect_uri=
 
-    # TODO: verify service URL
+    service = request.args.get('service', '')
+
     args = parse.urlencode({
         'scope': app.config['OAUTH2_SCOPE'],
         'client_id': app.config['OAUTH2_CLIENT'],
         'response_type': 'code',
         'redirect_uri': app.config['REDIRECT_URI'],
-        'state': request.args.get('service', ''),
+        'state': service,
     })
+
+    if app.config['SERVICE_URL'] and \
+            not service.startswith(app.config['SERVICE_URL']):
+        abort(403)
 
     return redirect('%s?%s' % (app.config['OAUTH2_AUTHORIZE'], args))
 
