@@ -108,11 +108,12 @@ def callback():
     """
     # call OAUTH2_TOKEN, redirect with ?ticket=[access_token]
 
-    resp = requests.get(app.config['OAUTH2_TOKEN'], params={
+    resp = requests.post(app.config['OAUTH2_TOKEN'], params={
         'grant_type': 'authorization_code',
         'client_id': app.config['OAUTH2_CLIENT'],
         'client_secret': app.config['OAUTH2_SECRET'],
         'redirect_uri': app.config['REDIRECT_URI'],
+        'scope': app.config['OAUTH2_SCOPE'],
         'code': request.args.get('code', '')
     })
     resp.raise_for_status()
